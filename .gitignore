@@ -1,0 +1,11 @@
+# Secrets
+.env
+
+# Local data (database, uploaded files, backups)
+data/
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/

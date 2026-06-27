@@ -1,0 +1,68 @@
+---
+description: Project overview, architecture, and conventions for the personal Telegram bot
+globs:
+alwaysApply: true
+---
+
+# Personal Telegram Bot — project guide for the AI agent
+
+A **private, single-user** personal-assistant / archive Telegram bot. It must
+only respond to the one owner (allowlist by Telegram user id). Treat stored
+documents as potentially sensitive personal data.
+
+## Stack
+- Python 3.10+ (developed on 3.12), **async**.
+- `python-telegram-bot[job-queue]==21.6` (PTB v21 async API: `Application`,
+  `CommandHandler`, `MessageHandler`, `CallbackQueryHandler`, `ConversationHandler`,
+  `ContextTypes`, `filters`). The `[job-queue]` extra (APScheduler) powers reminders.
+- `python-dotenv` for config.
+- **SQLite** for v1, **local disk** for files.
+
+## How to run
+1. `python -m venv .venv` then activate (`.\.venv\Scripts\Activate.ps1` on Windows).
+2. `pip install -r requirements.txt`.
+3. `copy .env.example .env` and fill in `TELEGRAM_BOT_TOKEN` and `ALLOWED_USER_ID`.
+4. `python bot.py` (long-polling; no public IP/ports needed).
+
+## Architecture & file map
+- `bot.py` — entry point. Validates config, calls `init_db()`, registers every
+  module's handlers, builds the inline main menu, starts the scheduler, polls.
+- `config.py` — loads `.env`; exposes paths/secrets; `validate()` fails fast.
+- `database.py` — thin `Database` class (`execute` / `query` / `query_one`) and
+  `init_db()` with all `CREATE TABLE` statements. **This class is the only seam
+  for a future PostgreSQL move** — keep all SQL going through it.
+- `services/security.py` — `is_allowed`, `@restricted` decorator, `safe_filename`.
+- `services/storage.py` — `StorageBackend` interface + `LocalStorage`; the single
+  `storage` object is what everything uses. `download_telegram_file(bot, file_id)`.
+- `services/scheduler.py` — registers `check_due_reminders` on the job queue (60s).
+- `services/obsidian.py` — one-way export of the book archive to an Obsidian vault.
+- `modules/<feature>.py` — one feature each: `documents`, `reminders`, `books`,
+  `expenses`, `legal`, `music`, `notes`, `backup`. Each exposes `get_handlers()`.
+
+## Conventions (follow these when editing or adding code)
+- Every user-facing handler is decorated with `@restricted`. Never add a command
+  that bypasses the allowlist.
+- Each feature module exposes `def get_handlers() -> list`; `bot.py` collects them.
+  Register new handlers there, not by editing other modules.
+- All database access goes through the shared `db` object (`from database import db`).
+  Use `?` placeholders. Do not open raw sqlite connections in modules.
+- All file writes go through the shared `storage` object. Never build file paths
+  by hand from user input — pass names through `safe_filename` (prevents path
+  traversal). Category/sub-folder names are also sanitised.
+- Multi-step flows use `ConversationHandler` with integer state constants defined
+  at the top of the module; always provide a `/cancel` fallback and clear
+  `context.user_data` when the flow ends.
+- Keep v1 **simple and well-commented** for a non-advanced developer. Avoid adding
+  dependencies or abstractions unless asked. Prefer clear functions over cleverness.
+- Background/export failures (e.g. Obsidian) must be caught and logged, never
+  allowed to crash a bot command.
+
+## Things to be careful about
+- Secrets come only from `.env`; never hard-code tokens or ids.
+- Stored files are **not encrypted** in v1 (documented limitation).
+- `modules/music.py` has a deliberately **disabled** "import from link" placeholder —
+  do not implement downloading of copyrighted content.
+
+## v2 directions (only if asked)
+Encryption at rest, cloud storage backends, PostgreSQL (reimplement `Database`),
+SQLite FTS5 search, OCR on receipts, recurring reminders, two-way Obsidian sync.

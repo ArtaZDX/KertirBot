@@ -1,0 +1,11 @@
+# Telegram bot framework (async). The [job-queue] extra pulls in APScheduler,
+# which we use for the reminder scheduler.
+python-telegram-bot[job-queue]==21.6
+
+# Loads variables from your .env file.
+python-dotenv==1.0.1
+
+# YouTube -> MP3 downloading. Keep this UPDATED (`pip install -U yt-dlp`) — YouTube
+# changes often and an outdated yt-dlp will fail. Also requires the ffmpeg
+# executable installed on the system (not a pip package) for MP3 conversion.
+yt-dlp
