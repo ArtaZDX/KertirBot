@@ -100,14 +100,19 @@ def draw_face(width: int = 250, height: int = 122, mood: str = "happy") -> Image
     return img
 
 
-def show_on_epaper(mood: str) -> None:
-    """Push the face to the physical panel. Runs only on the Pi."""
-    # Imported here so the file still runs for --preview on machines without it.
-    from waveshare_epd import epd2in13_V4
+def show_on_epaper(mood: str, panel: str = "epd2in13_V4") -> None:
+    """Push the face to the physical panel. Runs only on the Pi.
 
-    epd = epd2in13_V4.EPD()
+    `panel` is the Waveshare driver module name for your screen, e.g.
+    epd2in13_V4 (default), epd2in7_V2, epd4in2_V2, etc.
+    """
+    # Imported here so the file still runs for --preview on machines without it.
+    import importlib
+
+    epd_module = importlib.import_module(f"waveshare_epd.{panel}")
+    epd = epd_module.EPD()
     epd.init()
-    # The 2.13" V4 is portrait natively; (epd.height, epd.width) gives landscape.
+    # Most panels are portrait natively; (epd.height, epd.width) gives landscape.
     img = draw_face(epd.height, epd.width, mood)
     epd.display(epd.getbuffer(img))
     epd.sleep()
@@ -122,10 +127,12 @@ def main():
     p.add_argument("--preview", metavar="PNG", help="save a PNG instead of using the display")
     p.add_argument("--scale", type=int, default=1, help="upscale factor for the PNG preview")
     p.add_argument("--display", action="store_true", help="render to the e-paper (on the Pi)")
+    p.add_argument("--panel", default="epd2in13_V4",
+                   help="Waveshare driver module for your panel (default: epd2in13_V4)")
     args = p.parse_args()
 
     if args.display:
-        show_on_epaper(args.mood)
+        show_on_epaper(args.mood, args.panel)
         return
 
     img = draw_face(args.width, args.height, args.mood)
